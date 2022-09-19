@@ -7,36 +7,40 @@ import simplematrixbotlib as botlib
 import os
 import random
 
-server = os.environ.get("MATRIX_SERVER")
-user_name = os.environ.get("REDITBOTUNAME")
-password = os.environ.get("REDITPASSWORD")
-count = 0
+class ReditBot(botlib.Bot):
+    def __init__(self, server, user_name, password, store_path="./crypto_store/", encryption_enabled=True, prefix="!"):
+        self.config = botlib.Config()
+        self.shutup_count = 0
+        self.prefix = prefix
+        self.config.encryption_enabled = encryption_enabled
+        self.config.store_path = store_path
+        self.creds = botlib.Creds(server, user_name, password)
+        super().__init__(self.creds, self.config)
+        self.listener.on_message_event(self.on_message)
 
-config = botlib.Config()
-config.encryption_enabled = True
-config.store_path = './crypto_store/'
+    async def on_message(self, room, message):
+        global count
+        match = botlib.MessageMatch(room, message, self, self.prefix)
+        if match.is_not_from_this_bot():
+            if match.prefix():
+                if self.shutup_count<= 0:
+                    msg = self.echo(message.body[1:])
+                    await self.api.send_text_message(room.room_id, msg)
+                else:
+                    count -= 1
+                    await self.api.send_text_message(room.room_id, "🙊")
+            elif match.contains("shutup bot"):
+                self.shutup_count = random.randint(1,11)
+                await self.api.send_text_message(room.room_id, "😥")
 
-creds = botlib.Creds(server, user_name, password)
-bot = botlib.Bot(creds, config)
-PREFIX = '!'
+    def echo(self, msg:str)->str:
+        return msg.upper()
 
-def ech(msg:str)->str:
-    return msg.upper()
 
-@bot.listener.on_message_event
-async def echo(room, message):
-    global count
-    match = botlib.MessageMatch(room, message, bot, PREFIX)
 
-    if match.is_not_from_this_bot():
-        if match.prefix():
-            if count <= 0:
-                msg = ech(message.body[1:])
-                await bot.api.send_text_message(room.room_id, msg)
-            else:
-                count -= 1
-                await bot.api.send_text_message(room.room_id, "🙊")
-        elif match.contains("shutup bot"):
-            count = random.randint(1,11)
-            await bot.api.send_text_message(room.room_id, "😥")
-bot.run()
+if __name__ == "__main__":
+    server = os.environ.get("MATRIX_SERVER")
+    user_name = os.environ.get("REDITBOTUNAME")
+    password = os.environ.get("REDITPASSWORD")
+    bot = ReditBot(server, user_name, password)
+    bot.run()
