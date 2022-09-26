@@ -13,13 +13,16 @@ class ReditBot(botlib.Bot):
         self.shutup_count = 0
         self.prefix = prefix
         self.config.encryption_enabled = encryption_enabled
-        self.config.store_path = store_path
+        if not os.path.isdir(os.environ["HOME"]+"/.cache"):
+            os.mkdir(os.environ["HOME"]+"/.cache")
+        if not os.path.isdir(os.environ["HOME"]+"/.cache"):
+            os.mkdir(os.environ["HOME"]+"/.cache/ReditBot")
+        self.config.store_path = os.environ["HOME"]+"/.cache/ReditBot"+store_path
         self.creds = botlib.Creds(server, user_name, password)
         super().__init__(self.creds, self.config)
         self.listener.on_message_event(self.on_message)
 
     async def on_message(self, room, message):
-        global count
         match = botlib.MessageMatch(room, message, self, self.prefix)
         if match.is_not_from_this_bot():
             if match.prefix():
@@ -27,7 +30,7 @@ class ReditBot(botlib.Bot):
                     msg = self.echo(message.body[1:])
                     await self.api.send_text_message(room.room_id, msg)
                 else:
-                    count -= 1
+                    self.shutup_count -= 1
                     await self.api.send_text_message(room.room_id, "🙊")
             elif match.contains("shutup bot"):
                 self.shutup_count = random.randint(1,11)
