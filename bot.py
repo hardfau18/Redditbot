@@ -9,18 +9,21 @@ import os
 import random
 import youtube_dl as yd
 import re
+import asyncio
     
 
 class ReditBot(botlib.Bot):
-    def __init__(self, server, user_name, password, store_path="./crypto_store/", encryption_enabled=True, prefix="!"):
+    def __init__(self, server, user_name, password, store_path="/crypto_store/", encryption_enabled=True, prefix="!"):
         self.config = botlib.Config()
         self.shutup_count = 0
         self.prefix = prefix
         self.config.encryption_enabled = encryption_enabled
         if not os.path.isdir(os.environ["HOME"]+"/.cache"):
             os.mkdir(os.environ["HOME"]+"/.cache")
-        if not os.path.isdir(os.environ["HOME"]+"/.cache"):
+        if not os.path.isdir(os.environ["HOME"]+"/.cache/ReditBot"):
             os.mkdir(os.environ["HOME"]+"/.cache/ReditBot")
+        if not os.path.isdir(os.environ["HOME"]+"/.cache/ReditBot/Download"):
+            os.mkdir(os.environ["HOME"]+"/.cache/ReditBot/Download")
         self.config.store_path = os.environ["HOME"]+"/.cache/ReditBot"+store_path
         self.creds = botlib.Creds(server, user_name, password)
         super().__init__(self.creds, self.config)
@@ -41,31 +44,39 @@ class ReditBot(botlib.Bot):
                 self.shutup_count = random.randint(1,11)
                 await self.api.send_text_message(room.room_id, "😥")
 
-            elif match.contains("https"):
-                print(message.body)
-                if self.is_redit_link(message.body):
-                    await self.api.send_text_message(room.room_id, "Done!!")
-                else:
-                    await self.api.send_text_message(room.room_id, "This is not reddit video")
+            elif match.contains("https://"):
+                #print(message.body)
+                res = self.is_redit_link(message.body)
+                await self.api.send_text_message(room.room_id, res)
 
     def echo(self, msg:str)->str:
         return msg.upper()
 
-    def is_redit_link(self, link:str)->bool:
-        check_link = re.compile(r"https://www.reddit.com/r/\S+\?")
+    def is_redit_link(self, link:str)->str:
+        check_link = re.compile(r"https://www.reddit.com/r/\S+\??")
         res = check_link.search(link)
         if res:
-            url = res.group(0)[:-1]
-            ydl_opts = {}
+            url = res.group(0)
+            ydl_opts = {'outtmpl': os.environ["HOME"]+"/.cache/ReditBot/Download/%(title)s.%(ext)s"}
             with yd.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            return True
+                try:
+                    ydl.download([url])
+                except Exception as e:
+                    return "ERROR: "+e.__str__()[17:]
+            return "Title"
         else:
-            return False
+            return "What the heck is this"
 
 if __name__ == "__main__":
     server = os.environ.get("MATRIX_SERVER")
     user_name = os.environ.get("REDITBOTUNAME")
     password = os.environ.get("REDITPASSWORD")
     bot = ReditBot(server, user_name, password)
-    bot.run()
+    while(True):
+        try:
+            bot.run()
+        except asyncio.exceptions.TimeoutError:
+            continue
+        except Exception as e:
+            print(e)
+            break
