@@ -3,9 +3,13 @@
 # randomuser - "!echo example string"
 # echo_bot - "example string"
 
+from __future__ import unicode_literals
 import simplematrixbotlib as botlib
 import os
 import random
+import youtube_dl as yd
+import re
+    
 
 class ReditBot(botlib.Bot):
     def __init__(self, server, user_name, password, store_path="./crypto_store/", encryption_enabled=True, prefix="!"):
@@ -32,14 +36,32 @@ class ReditBot(botlib.Bot):
                 else:
                     self.shutup_count -= 1
                     await self.api.send_text_message(room.room_id, "🙊")
+
             elif match.contains("shutup bot"):
                 self.shutup_count = random.randint(1,11)
                 await self.api.send_text_message(room.room_id, "😥")
 
+            elif match.contains("https"):
+                print(message.body)
+                if self.is_redit_link(message.body):
+                    await self.api.send_text_message(room.room_id, "Done!!")
+                else:
+                    await self.api.send_text_message(room.room_id, "This is not reddit video")
+
     def echo(self, msg:str)->str:
         return msg.upper()
 
-
+    def is_redit_link(self, link:str)->bool:
+        check_link = re.compile(r"https://www.reddit.com/r/\S+\?")
+        res = check_link.search(link)
+        if res:
+            url = res.group(0)[:-1]
+            ydl_opts = {}
+            with yd.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            return True
+        else:
+            return False
 
 if __name__ == "__main__":
     server = os.environ.get("MATRIX_SERVER")
